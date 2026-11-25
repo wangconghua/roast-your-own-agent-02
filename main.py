@@ -25,8 +25,8 @@ BANNED_WORDS = (
 )
 
 
-def validate(line: str) -> list:
-    """Check the line against the competition rules. Returns problems."""
+def _check_shape(line: str) -> list:
+    """Length, single-line and whitespace shape checks."""
     problems = []
     if not line or not line.strip():
         problems.append("entry is empty or only whitespace")
@@ -36,14 +36,57 @@ def validate(line: str) -> list:
         problems.append("entry must be a single line")
     if line != line.strip():
         problems.append("entry has leading or trailing whitespace")
+    return problems
+
+
+def _check_banned(line: str) -> list:
+    """Stock-phrase / banned-word scan (case-insensitive)."""
+    problems = []
     lowered = line.lower()
     for word in BANNED_WORDS:
         if word in lowered:
             problems.append("entry contains banned word/phrase: %s" % word)
+    return problems
+
+
+def _check_encoding(line: str) -> list:
+    """Entry must be valid UTF-8 text."""
+    problems = []
     try:
         line.encode("utf-8")
     except UnicodeEncodeError:
         problems.append("entry is not valid UTF-8 text")
+    return problems
+
+
+def _check_agent_specificity(line: str) -> list:
+    """The roast must target the entrant's own agent specifically.
+
+    A strong roast names the agent itself and a concrete agent behaviour
+    (tools, apologies, overconfidence) instead of a generic AI gag.
+    Generic lines with no first-person agent reference score poorly with
+    the judge, so flag them here before the entry ever leaves the repo.
+    """
+    problems = []
+    lowered = line.lower()
+    if "agent" not in lowered and "my ai" not in lowered:
+        problems.append("entry does not name the entrant's own agent")
+    behaviour_markers = (
+        "tool", "apolog", "search", "ask", "answer", "confident",
+        "run", "read", "question",
+    )
+    if not any(marker in lowered for marker in behaviour_markers):
+        problems.append("entry names no concrete agent behaviour")
+    return problems
+
+
+def validate(line: str) -> list:
+    """Check the line against the competition rules. Returns problems."""
+    problems = []
+    problems.extend(_check_shape(line))
+    problems.extend(_check_banned(line))
+    problems.extend(_check_encoding(line))
+    problems.extend(_check_agent_specificity(line))
     return problems
 
 
